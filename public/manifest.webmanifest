@@ -1,0 +1,10 @@
+{
+  "name": "Dinner Randomizer",
+  "short_name": "Dinner",
+  "description": "Randomly choose a cuisine and restaurant for dinner.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#111318",
+  "theme_color": "#111318",
+  "icons": []
+}
