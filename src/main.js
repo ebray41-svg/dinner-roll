@@ -1,5 +1,9 @@
 import './style.css'
 import { restaurants } from './restaurants.js'
+import Globe from 'globe.gl'
+
+const earthTexture = new Image()
+earthTexture.src = '/earth-texture.jpg'
 
 const cuisines = [
   'Mexican',
@@ -15,6 +19,20 @@ const cuisines = [
   'American',
   'Pizza',
 ]
+const cuisineTargets = {
+  Mexican: { lat: 23.6, lng: -102.5 },
+  Italian: { lat: 41.9, lng: 12.6 },
+  Japanese: { lat: 36.2, lng: 138.3 },
+  Chinese: { lat: 35.9, lng: 104.2 },
+  Thai: { lat: 15.9, lng: 100.9 },
+  Indian: { lat: 20.6, lng: 78.9 },
+  Korean: { lat: 36.5, lng: 127.9 },
+  Vietnamese: { lat: 14.1, lng: 108.3 },
+  Mediterranean: { lat: 38.5, lng: 23.5 },
+  "Steak & Grill": { lat: 39.8, lng: -98.6 },
+  American: { lat: 39.8, lng: -98.6 },
+  Pizza: { lat: 41.9, lng: 12.6 },
+}
 
 let selectedBudget = 25
 let selectedDistance = 5
@@ -22,6 +40,9 @@ let partySize = 2
 let selectedCuisine = null
 let cuisineWheelRotation = 0
 let restaurantWheelRotation = 0
+
+let activeGlobe = null
+let globeIsSpinning = false
 
 function getFavoriteRestaurants() {
   return JSON.parse(localStorage.getItem('favoriteRestaurants') || '[]')
@@ -178,10 +199,10 @@ function renderCuisineScreen() {
   document.querySelector('#app').innerHTML = `
     <main class="app-shell">
       <section class="card">
-        <div class="logo">🎡</div>
+        <div class="logo"></div>
 
-        <h1>Cuisine Wheel</h1>
-        <p class="subtitle">Let's see what you're eating tonight.</p>
+        <h1 class="globe-title">Spin Around the World</h1>
+        <p class="subtitle">Let's see what it decides...</p>
 
         <div class="summary-box">
           <span>Budget: $${selectedBudget}</span>
@@ -189,34 +210,22 @@ function renderCuisineScreen() {
           <span>Party: ${partySize}</span>
         </div>
 
-        <div class="wheel-wrap">
-          <div class="wheel-pointer">▼</div>
+        
+        <div class="globe-stage">
+          <div
+            class="real-globe-container clickable-globe"
+            id="globe"
+          ></div>
+        </div>
 
-          <div class="visual-wheel" id="wheel">
-            ${cuisines
-              .map(
-                (cuisine, index) => `
-                  <div
-                    class="wheel-label"
-                    style="transform: rotate(${index * (360 / cuisines.length)}deg)"
-                  >
-                    <span>${cuisine}</span>
-                  </div>
-                `
-              )
-              .join('')}
-            </div>
-          </div>
+        <div
+          class="globe-result hidden"
+          id="cuisine-result"
+        ></div>
 
-          <div class="wheel-result" id="wheel-text">
-            Ready?
-          </div>
 
-        <button id="spin-cuisine" class="primary-button">
-          🎡 Spin Cuisine
-        </button>
         <button id="find-restaurant" class="primary-button hidden">
-          🍽️ Find My Restaurant
+          Now Find a Good Place
         </button>
 
         <button id="back-home" class="secondary-button">
@@ -226,77 +235,206 @@ function renderCuisineScreen() {
     </main>
   `
 
+  const globeElement = document.querySelector('#globe')
+
+  activeGlobe = Globe()(globeElement)
+    .width(380)
+    .height(380)
+    .backgroundColor('rgba(0,0,0,0)')
+    .globeImageUrl('/earth-texture.jpg')
+    .showAtmosphere(true)
+    .atmosphereColor('#d0a85f')
+    .atmosphereAltitude(0.12)
+
+  activeGlobe.pointOfView(
+    {
+      lat: 20,
+      lng: 0,
+      altitude: 2.1,
+    },
+    0
+  )
+
+  const controls = activeGlobe.controls()
+
+  controls.enableZoom = false
+  controls.enablePan = false
+  controls.autoRotate = false
+
+
   document.querySelector('#back-home').addEventListener('click', () => {
     renderHome()
   })
 
-  document.querySelector('#spin-cuisine').addEventListener('click', () => {
+  globeElement.addEventListener('click', () => {
     spinCuisine()
   })
+
   document.querySelector('#find-restaurant').addEventListener('click', () => {
     renderRestaurantScreen()
   })
 }
 
 function spinCuisine() {
-  const wheel = document.querySelector('#wheel')
-  const wheelText = document.querySelector('#wheel-text')
-  const spinButton = document.querySelector('#spin-cuisine')
+  if (!activeGlobe || globeIsSpinning) {
+    return
+  }
 
-  spinButton.disabled = true
-  spinButton.textContent = 'Spinning...'
+  globeIsSpinning = true
 
-  const sliceAngle = 360 / cuisines.length
+  activeGlobe.htmlElementsData([])
 
-  // Randomly choose the winning cuisine.
-  const winnerIndex = Math.floor(Math.random() * cuisines.length)
-  const winner = cuisines[winnerIndex]
+  const cuisineResult =
+    document.querySelector('#cuisine-result')
+
+  const findRestaurantButton =
+    document.querySelector('#find-restaurant')
+
+  cuisineResult.classList.add('hidden')
+  findRestaurantButton.classList.add('hidden')
+
+  const winner =
+    cuisines[Math.floor(Math.random() * cuisines.length)]
 
   selectedCuisine = winner
 
-  // Each slice starts at index * sliceAngle.
-  // We want the CENTER of the winning slice under the pointer at 12 o'clock.
-  const winnerCenterAngle =
-    winnerIndex * sliceAngle + sliceAngle / 2
+  const target = cuisineTargets[winner]
 
-  // Add several complete clockwise rotations every time.
-  const fullSpins = 5 + Math.floor(Math.random() * 3)
+  const startingView = activeGlobe.pointOfView()
 
-  // Current normalized wheel position.
-  const currentNormalized =
-    ((cuisineWheelRotation % 360) + 360) % 360
+  const startLng = startingView.lng
+  const startLat = startingView.lat
 
-  // Rotation needed from the current position so the winning slice center
-  // ends at the pointer.
-  const targetNormalized =
-    (270 - winnerCenterAngle + 360) % 360
+  let finalLng = target.lng
 
-  let additionalRotation =
-    targetNormalized - currentNormalized
-
-  // Force clockwise movement.
-  if (additionalRotation < 0) {
-    additionalRotation += 360
+  // Force the globe to keep traveling in the same direction
+  // instead of taking Globe.GL's shortest route.
+  while (finalLng >= startLng) {
+    finalLng -= 360
   }
 
-  // Always give it several full turns.
-  additionalRotation += fullSpins * 360
+  // Add three more complete revolutions.
+  finalLng -= 1400
 
-  cuisineWheelRotation += additionalRotation
+  const totalDuration = 5400
+  const startTime = performance.now()
 
-  wheel.style.transform =
-    `rotate(${cuisineWheelRotation}deg)`
+  const controls = activeGlobe.controls()
+  controls.enabled = false
+
+  function animateSpin(currentTime) {
+    const elapsed = currentTime - startTime
+
+    const progress = Math.min(
+      elapsed / totalDuration,
+      1
+    )
+
+    // Starts fast and slows down gradually.
+    const easedProgress =
+      1 - Math.pow(1 - progress, 3.4)
+
+    const rawLng =
+      startLng +
+      (finalLng - startLng) * easedProgress
+
+    const currentLng =
+      ((rawLng + 180) % 360 + 360) % 360 - 180
+
+    let currentLat = startLat
+
+    // Keep the globe fairly level for most of the spin.
+    // Only move toward the winning location near the end.
+    if (progress > 0.76) {
+      const latitudeProgress =
+        (progress - 0.76) / 0.24
+
+      const easedLatitude =
+        1 - Math.pow(1 - latitudeProgress, 3)
+
+      currentLat =
+        startLat +
+        (target.lat - startLat) * easedLatitude
+    }
+
+    activeGlobe.pointOfView(
+      {
+        lat: currentLat,
+        lng: currentLng,
+        altitude: 2.1,
+      },
+      0
+    )
+
+    if (progress < 1) {
+      requestAnimationFrame(animateSpin)
+      return
+    }
+
+    activeGlobe.pointOfView(
+      {
+        lat: target.lat,
+        lng: target.lng,
+        altitude: 2.1,
+      },
+      0
+    )
+
+    
+    dropCuisinePin(
+      target,
+      winner,
+      cuisineResult,
+      findRestaurantButton,
+      controls
+    )
+  }
+
+  requestAnimationFrame(animateSpin)
+}
+
+function dropCuisinePin(
+  target,
+  winner,
+  cuisineResult,
+  findRestaurantButton,
+  controls
+) {
+  const pinData = {
+    lat: target.lat,
+    lng: target.lng,
+  }
+
+  activeGlobe
+    .htmlElementsData([pinData])
+    .htmlLat(d => d.lat)
+    .htmlLng(d => d.lng)
+    .htmlAltitude(0.015)
+    .htmlElement(() => {
+      const anchor = document.createElement('div')
+      anchor.className = 'pin-anchor'
+
+      const pin = document.createElement('div')
+      pin.className = 'globe-pin'
+
+      anchor.appendChild(pin)
+
+      setTimeout(() => {
+        pin.classList.add('drop')
+      }, 100)
+
+      return anchor
+    })
 
   setTimeout(() => {
-    wheelText.textContent = winner
+    cuisineResult.textContent = winner
+    cuisineResult.classList.remove('hidden')
 
-    spinButton.disabled = false
-    spinButton.textContent = '🎡 Spin Again'
+    findRestaurantButton.classList.remove('hidden')
 
-    document
-      .querySelector('#find-restaurant')
-      .classList.remove('hidden')
-  }, 3000)
+    controls.enabled = true
+    globeIsSpinning = false
+  }, 1200)
 }
 
 function renderRestaurantScreen() {
@@ -381,7 +519,7 @@ restaurantContent = `
             const sliceAngle = 360 / finalRestaurantPool.length
             const start = index * sliceAngle
             const end = (index + 1) * sliceAngle
-            const color = index % 2 === 0 ? '#f6b73c' : '#2f3542'
+            const color = index % 2 === 0 ? '#2b2d29' : '#1f211f'
 
             return `${color} ${start}deg ${end}deg`
           })
