@@ -1,6 +1,6 @@
 import './style.css'
 import { restaurants } from './restaurants.js'
-import Globe from 'globe.gl'
+
 
 const earthTexture = new Image()
 earthTexture.src = '/earth-texture.jpg'
@@ -19,20 +19,7 @@ const cuisines = [
   'American',
   'Pizza',
 ]
-const cuisineTargets = {
-  Mexican: { lat: 23.6, lng: -102.5 },
-  Italian: { lat: 41.9, lng: 12.6 },
-  Japanese: { lat: 36.2, lng: 138.3 },
-  Chinese: { lat: 35.9, lng: 104.2 },
-  Thai: { lat: 15.9, lng: 100.9 },
-  Indian: { lat: 20.6, lng: 78.9 },
-  Korean: { lat: 36.5, lng: 127.9 },
-  Vietnamese: { lat: 14.1, lng: 108.3 },
-  Mediterranean: { lat: 38.5, lng: 23.5 },
-  "Steak & Grill": { lat: 39.8, lng: -98.6 },
-  American: { lat: 39.8, lng: -98.6 },
-  Pizza: { lat: 41.9, lng: 12.6 },
-}
+
 
 let selectedBudget = 25
 let selectedDistance = 5
@@ -41,8 +28,7 @@ let selectedCuisine = null
 let cuisineWheelRotation = 0
 let restaurantWheelRotation = 0
 
-let activeGlobe = null
-let globeIsSpinning = false
+
 
 function getFavoriteRestaurants() {
   return JSON.parse(localStorage.getItem('favoriteRestaurants') || '[]')
@@ -100,10 +86,10 @@ function renderHome() {
   document.querySelector('#app').innerHTML = `
     <main class="app-shell">
       <section class="card">
-        <div class="logo">🍽️</div>
+        <div class="logo"></div>
 
         <h1>Dinner Roll</h1>
-        <p class="subtitle">What are we eating tonight?</p>
+        <p class="subtitle">We used to hunt and gather...now we do this</p>
 
         <div class="section">
           <h2>Budget</h2>
@@ -152,7 +138,7 @@ function renderHome() {
         </div>
 
         <button id="lets-eat" class="primary-button">
-          🎲 Let's Eat!
+          Bon Appetit
         </button>
       </section>
     </main>
@@ -201,7 +187,7 @@ function renderCuisineScreen() {
       <section class="card">
         <div class="logo"></div>
 
-        <h1 class="globe-title">Spin Around the World</h1>
+        <h1 class="globe-title">The Internet Always Knows</h1>
         <p class="subtitle">Let's see what it decides...</p>
 
         <div class="summary-box">
@@ -211,17 +197,12 @@ function renderCuisineScreen() {
         </div>
 
         
-        <div class="globe-stage">
-          <div
-            class="real-globe-container clickable-globe"
-            id="globe"
-          ></div>
+        <div class="cycle-stage">
+          <div class="cycle-circle" id="cuisine-cycle">
+            <div class="cycle-label">Cuisine</div>
+          </div>
         </div>
 
-        <div
-          class="globe-result hidden"
-          id="cuisine-result"
-        ></div>
 
 
         <button id="find-restaurant" class="primary-button hidden">
@@ -235,38 +216,14 @@ function renderCuisineScreen() {
     </main>
   `
 
-  const globeElement = document.querySelector('#globe')
-
-  activeGlobe = Globe()(globeElement)
-    .width(380)
-    .height(380)
-    .backgroundColor('rgba(0,0,0,0)')
-    .globeImageUrl('/earth-texture.jpg')
-    .showAtmosphere(true)
-    .atmosphereColor('#d0a85f')
-    .atmosphereAltitude(0.12)
-
-  activeGlobe.pointOfView(
-    {
-      lat: 20,
-      lng: 0,
-      altitude: 2.1,
-    },
-    0
-  )
-
-  const controls = activeGlobe.controls()
-
-  controls.enableZoom = false
-  controls.enablePan = false
-  controls.autoRotate = false
+  
 
 
   document.querySelector('#back-home').addEventListener('click', () => {
     renderHome()
   })
 
-  globeElement.addEventListener('click', () => {
+  document.querySelector('#cuisine-cycle').addEventListener('click', () => {
     spinCuisine()
   })
 
@@ -275,22 +232,19 @@ function renderCuisineScreen() {
   })
 }
 
+
+
 function spinCuisine() {
-  if (!activeGlobe || globeIsSpinning) {
+  const cycleCircle = document.querySelector('#cuisine-cycle')
+  const findRestaurantButton = document.querySelector('#find-restaurant')
+
+  if (cycleCircle.classList.contains('spinning')) {
     return
   }
 
-  globeIsSpinning = true
+  cycleCircle.classList.add('spinning')
 
-  activeGlobe.htmlElementsData([])
-
-  const cuisineResult =
-    document.querySelector('#cuisine-result')
-
-  const findRestaurantButton =
-    document.querySelector('#find-restaurant')
-
-  cuisineResult.classList.add('hidden')
+  
   findRestaurantButton.classList.add('hidden')
 
   const winner =
@@ -298,144 +252,41 @@ function spinCuisine() {
 
   selectedCuisine = winner
 
-  const target = cuisineTargets[winner]
+  let index = 0
+  let delay = 55
+  let cycles = 0
 
-  const startingView = activeGlobe.pointOfView()
+  function showNextCuisine() {
+    cycleCircle.textContent = cuisines[index]
 
-  const startLng = startingView.lng
-  const startLat = startingView.lat
+    index = (index + 1) % cuisines.length
+    cycles += 1
 
-  let finalLng = target.lng
-
-  // Force the globe to keep traveling in the same direction
-  // instead of taking Globe.GL's shortest route.
-  while (finalLng >= startLng) {
-    finalLng -= 360
-  }
-
-  // Add three more complete revolutions.
-  finalLng -= 1400
-
-  const totalDuration = 5400
-  const startTime = performance.now()
-
-  const controls = activeGlobe.controls()
-  controls.enabled = false
-
-  function animateSpin(currentTime) {
-    const elapsed = currentTime - startTime
-
-    const progress = Math.min(
-      elapsed / totalDuration,
-      1
-    )
-
-    // Starts fast and slows down gradually.
-    const easedProgress =
-      1 - Math.pow(1 - progress, 3.4)
-
-    const rawLng =
-      startLng +
-      (finalLng - startLng) * easedProgress
-
-    const currentLng =
-      ((rawLng + 180) % 360 + 360) % 360 - 180
-
-    let currentLat = startLat
-
-    // Keep the globe fairly level for most of the spin.
-    // Only move toward the winning location near the end.
-    if (progress > 0.76) {
-      const latitudeProgress =
-        (progress - 0.76) / 0.24
-
-      const easedLatitude =
-        1 - Math.pow(1 - latitudeProgress, 3)
-
-      currentLat =
-        startLat +
-        (target.lat - startLat) * easedLatitude
-    }
-
-    activeGlobe.pointOfView(
-      {
-        lat: currentLat,
-        lng: currentLng,
-        altitude: 2.1,
-      },
-      0
-    )
-
-    if (progress < 1) {
-      requestAnimationFrame(animateSpin)
+    if (cycles < 40) {
+      setTimeout(showNextCuisine, delay)
       return
     }
 
-    activeGlobe.pointOfView(
-      {
-        lat: target.lat,
-        lng: target.lng,
-        altitude: 2.1,
-      },
-      0
-    )
+    delay *= 1.16
 
-    
-    dropCuisinePin(
-      target,
-      winner,
-      cuisineResult,
-      findRestaurantButton,
-      controls
-    )
+    if (delay < 420) {
+      setTimeout(showNextCuisine, delay)
+      return
+    }
+
+    cycleCircle.textContent = winner
+
+    setTimeout(() => {
+      
+      findRestaurantButton.classList.remove('hidden')
+
+      cycleCircle.classList.remove('spinning')
+    }, 350)
   }
 
-  requestAnimationFrame(animateSpin)
+  showNextCuisine()
 }
 
-function dropCuisinePin(
-  target,
-  winner,
-  cuisineResult,
-  findRestaurantButton,
-  controls
-) {
-  const pinData = {
-    lat: target.lat,
-    lng: target.lng,
-  }
-
-  activeGlobe
-    .htmlElementsData([pinData])
-    .htmlLat(d => d.lat)
-    .htmlLng(d => d.lng)
-    .htmlAltitude(0.015)
-    .htmlElement(() => {
-      const anchor = document.createElement('div')
-      anchor.className = 'pin-anchor'
-
-      const pin = document.createElement('div')
-      pin.className = 'globe-pin'
-
-      anchor.appendChild(pin)
-
-      setTimeout(() => {
-        pin.classList.add('drop')
-      }, 100)
-
-      return anchor
-    })
-
-  setTimeout(() => {
-    cuisineResult.textContent = winner
-    cuisineResult.classList.remove('hidden')
-
-    findRestaurantButton.classList.remove('hidden')
-
-    controls.enabled = true
-    globeIsSpinning = false
-  }, 1200)
-}
 
 function renderRestaurantScreen() {
   const budgetPerPerson = selectedBudget / partySize
@@ -478,6 +329,11 @@ const restaurantPool = restaurants.filter((restaurant) => {
   )
 })
 
+const displayRestaurantPool = restaurants.filter(
+  restaurant =>
+    restaurant.cuisine === selectedCuisine
+)
+
   const recentRestaurants = getRecentRestaurants()
 
   const freshRestaurantPool = restaurantPool.filter((restaurant) => {
@@ -496,62 +352,25 @@ const restaurantPool = restaurants.filter((restaurant) => {
   if (finalRestaurantPool.length === 0) {
     restaurantContent = `
       <div class="result-box">
-        <h2>No matches found 😬</h2>
+        <h2>No dice, buddy</h2>
         <p>
-          We couldn't find a ${selectedCuisine} restaurant that fits your
-          current budget and distance.
+          Nothing fits your current budget and distance except a couple vending machines. 
+          Change those and try again.
         </p>
       </div>
     `
   } else {
 
 restaurantContent = `
-  <div class="wheel-wrap">
-    <div class="wheel-pointer">▼</div>
-
-    <div
-      class="visual-wheel restaurant-visual-wheel"
-      id="restaurant-wheel"
-      style="background: conic-gradient(
-        from 90deg,
-        ${finalRestaurantPool
-          .map((restaurant, index) => {
-            const sliceAngle = 360 / finalRestaurantPool.length
-            const start = index * sliceAngle
-            const end = (index + 1) * sliceAngle
-            const color = index % 2 === 0 ? '#2b2d29' : '#1f211f'
-
-            return `${color} ${start}deg ${end}deg`
-          })
-          .join(',')}
-      )"
-    >
-        ${finalRestaurantPool
-          .map((restaurant, index) => {
-            const sliceAngle = 360 / finalRestaurantPool.length
-            const centerAngle =
-              index * sliceAngle + sliceAngle / 2
-
-            return `
-              <div
-                class="wheel-label restaurant-wheel-label"
-                style="transform: rotate(${centerAngle}deg)"
-              >
-                <span>${restaurant.name}</span>
-            </div>
-          `
-        })
-        .join('')}
+  <div class="cycle-stage">
+    <div class="cycle-circle restaurant-cycle" id="restaurant-cycle">
+      <div class="cycle-label">Restaurant</div>
     </div>
   </div>
 
-  <div class="wheel-result" id="restaurant-wheel-text">
-    Ready?
-  </div>
+  <div class="cycle-result hidden" id="restaurant-result"></div>
 
-  <button id="spin-restaurant" class="primary-button">
-    🎡 Spin Restaurant
-  </button>
+  
 
   <div id="restaurant-result"></div>
 `
@@ -560,12 +379,12 @@ restaurantContent = `
   document.querySelector('#app').innerHTML = `
     <main class="app-shell">
       <section class="card">
-        <div class="logo">🎉</div>
+        <div class="logo"></div>
 
-        <h1>Dinner!</h1>
-        <p class="subtitle">
-          Cuisine: ${selectedCuisine}
-        </p>
+        <h1 class="winner-title">
+          <span>Winner Winner</span>
+          <span>Chicken Dinner</span>
+        </h1>
 
         ${restaurantContent}
 
@@ -577,14 +396,14 @@ restaurantContent = `
   `
 
   if (finalRestaurantPool.length > 0) {
-  document.querySelector('#spin-restaurant').addEventListener('click', () => {
-    spinRestaurant(
-      currentRestaurantPool,
-      budgetPerPerson,
-      targetTier
-    )
-  })
-}
+    document.querySelector('#restaurant-cycle').addEventListener('click', () => {
+      spinRestaurant(
+        currentRestaurantPool,
+        displayRestaurantPool
+      )
+    })
+  }
+  
 
   document.querySelector('#start-over').addEventListener('click', () => {
     renderHome()
@@ -593,171 +412,253 @@ restaurantContent = `
 
 function spinRestaurant(
   restaurantPool,
-  budgetPerPerson,
-  targetTier
+  displayRestaurantPool
 ) {
-  const wheel = document.querySelector('#restaurant-wheel')
-  const wheelText = document.querySelector('#restaurant-wheel-text')
-  const spinButton = document.querySelector('#spin-restaurant')
-  const resultBox = document.querySelector('#restaurant-result')
+  const cycleCircle = document.querySelector('#restaurant-cycle')
+  const restaurantResult = document.querySelector('#restaurant-result')
 
-  spinButton.disabled = true
-  spinButton.textContent = 'Spinning...'
-  resultBox.innerHTML = ''
-
-function tierFor(restaurant) {
-  if (restaurant.tier) {
-    return restaurant.tier
-  }
-
-  if (restaurant.pricePerPerson <= 20) {
-    return 'casual'
-  }
-
-  if (restaurant.pricePerPerson <= 40) {
-    return 'midrange'
-  }
-
-  return 'upscale'
-}
-
-const weightedRestaurants = restaurantPool.map((restaurant) => {
-  const restaurantTier = tierFor(restaurant)
-
-  let tierWeight = 1
-
-  if (restaurantTier === targetTier) {
-    tierWeight = 5
-  } else if (
-    targetTier === 'upscale' &&
-    restaurantTier === 'midrange'
+  if (
+    !cycleCircle ||
+    cycleCircle.classList.contains('spinning') ||
+    restaurantPool.length === 0
   ) {
-    tierWeight = 3
-  } else if (
-    targetTier === 'midrange' &&
-    restaurantTier === 'casual'
-  ) {
-    tierWeight = 2
+    return
   }
 
-  const budgetRatio =
-    restaurant.pricePerPerson / budgetPerPerson
+  cycleCircle.classList.add('spinning')
+  restaurantResult.classList.add('hidden')
 
-  const budgetWeight =
-    1 + Math.min(budgetRatio, 1) * 3
+  const budgetPerPerson =
+    selectedBudget / partySize
 
-  return {
-    restaurant,
-    weight: tierWeight * budgetWeight,
-  }
-})
+  function tierFor(restaurant) {
+    if (restaurant.tier) {
+      return restaurant.tier
+    }
 
-const totalWeight = weightedRestaurants.reduce(
-  (total, item) => total + item.weight,
-  0
-)
+    if (restaurant.pricePerPerson <= 20) {
+      return 'casual'
+    }
 
-let randomWeight = Math.random() * totalWeight
-let winner = weightedRestaurants[0].restaurant
+    if (restaurant.pricePerPerson <= 40) {
+      return 'midrange'
+    }
 
-for (const item of weightedRestaurants) {
-  randomWeight -= item.weight
-
-  if (randomWeight <= 0) {
-    winner = item.restaurant
-    break
-  }
-}
-
-const winnerIndex = restaurantPool.indexOf(winner)
-
-  const sliceAngle = 360 / restaurantPool.length
-
-  const winnerCenterAngle =
-    winnerIndex * sliceAngle + sliceAngle / 2
-
-  const fullSpins =
-    5 + Math.floor(Math.random() * 3)
-
-  const currentNormalized =
-    ((restaurantWheelRotation % 360) + 360) % 360
-
-  // 270 degrees corresponds to our pointer at 12 o'clock.
-  const targetNormalized =
-    (270 - winnerCenterAngle + 360) % 360
-
-  let additionalRotation =
-    targetNormalized - currentNormalized
-
-  if (additionalRotation < 0) {
-    additionalRotation += 360
+    return 'upscale'
   }
 
-  additionalRotation += fullSpins * 360
+  let targetTier = 'casual'
 
-  restaurantWheelRotation += additionalRotation
+  if (budgetPerPerson > 25 && budgetPerPerson <= 60) {
+    targetTier = 'midrange'
+  }
 
-  wheel.style.transform =
-    `rotate(${restaurantWheelRotation}deg)`
+  if (budgetPerPerson > 60) {
+    targetTier = 'upscale'
+  }
 
-  setTimeout(() => {
-    wheelText.textContent = winner.name
+  const weightedRestaurants =
+    restaurantPool.map((restaurant) => {
+      const restaurantTier = tierFor(restaurant)
+
+      let tierWeight = 1
+
+      if (restaurantTier === targetTier) {
+        tierWeight = 5
+      } else if (
+        targetTier === 'upscale' &&
+        restaurantTier === 'midrange'
+      ) {
+        tierWeight = 3
+      } else if (
+        targetTier === 'midrange' &&
+        restaurantTier === 'casual'
+      ) {
+        tierWeight = 2
+      }
+
+      const budgetRatio =
+        restaurant.pricePerPerson / budgetPerPerson
+
+      const budgetWeight =
+        1 + Math.min(budgetRatio, 1) * 3
+
+      return {
+        restaurant,
+        weight: tierWeight * budgetWeight,
+      }
+    })
+
+  const totalWeight =
+    weightedRestaurants.reduce(
+      (sum, item) => sum + item.weight,
+      0
+    )
+
+  let randomValue =
+    Math.random() * totalWeight
+
+  let winner =
+    weightedRestaurants[0].restaurant
+
+  for (const item of weightedRestaurants) {
+    randomValue -= item.weight
+
+    if (randomValue <= 0) {
+      winner = item.restaurant
+      break
+    }
+  }
+
+  let index = 0
+  let delay = 55
+  let cycles = 0
+
+  function showNextRestaurant() {
+    cycleCircle.textContent =
+      displayRestaurantPool[index].name
+
+    index =
+      (index + 1) % displayRestaurantPool.length
+
+    cycles += 1
+
+    if (cycles < 40) {
+      setTimeout(showNextRestaurant, delay)
+      return
+    }
+
+    delay *= 1.16
+
+    if (delay < 420) {
+      setTimeout(showNextRestaurant, delay)
+      return
+    }
+
+    cycleCircle.textContent = winner.name
 
     saveRecentRestaurant(winner.name)
 
-    const winnerPosition = restaurantPool.findIndex(
-      (restaurant) => restaurant.name === winner.name
-    )
+    const winnerPosition =
+      restaurantPool.findIndex(
+        restaurant =>
+          restaurant.name === winner.name
+      )
 
     if (winnerPosition !== -1) {
-      restaurantPool.splice(winnerPosition, 1)
-    }
-
-    const favorite = isFavoriteRestaurant(winner.name)
-
-    resultBox.innerHTML = `
-      <div class="result-box">
-        <p class="result-label">You're going to...</p>
-
-        <h2>${winner.name}</h2>
-
-        <p>${winner.cuisine}</p>
-        <p>💰 About $${winner.pricePerPerson}/person</p>
-        <p>📍 ${winner.distance} miles away</p>
-
-        <button
-          id="favorite-button"
-          class="favorite-button ${favorite ? 'is-favorite' : ''}"
-        >
-          ${favorite ? '❤️ Favorite' : '♡ Add to Favorites'}
-        </button>
-      </div>
-    `
-    const favoriteButton =
-      document.querySelector('#favorite-button')
-
-    favoriteButton.addEventListener('click', () => {
-      const nowFavorite =
-        toggleFavoriteRestaurant(winner.name)
-
-      favoriteButton.textContent =
-        nowFavorite
-          ? '❤️ Favorite'
-          : '♡ Add to Favorites'
-
-      favoriteButton.classList.toggle(
-        'is-favorite',
-        nowFavorite
+      restaurantPool.splice(
+        winnerPosition,
+        1
       )
-    })
-    if (restaurantPool.length > 0) {
-      spinButton.disabled = false
-      spinButton.textContent = '🎡 Spin Again'
-    } else {
-      spinButton.disabled = true
-      spinButton.textContent = 'No More Options'
     }
-  }, 3000)
+
+    setTimeout(() => {
+      restaurantResult.innerHTML = `
+        <div class="restaurant-info-card">
+
+          <div class="restaurant-title-row">
+            <div class="restaurant-name">
+              ${winner.name}
+            </div>
+
+            <button
+              class="favorite-heart ${
+                isFavoriteRestaurant(winner.name)
+                  ? 'is-favorite'
+                  : ''
+              }"
+              id="favorite-button"
+              aria-label="Favorite ${winner.name}"
+            >
+              ${
+                isFavoriteRestaurant(winner.name)
+                  ? '♥'
+                  : '♡'
+              }
+            </button>
+          </div>
+
+          <div class="restaurant-details">
+            ${winner.cuisine} · About $${winner.pricePerPerson} per person
+          </div>
+
+          <div class="restaurant-future-details">
+
+            <div class="detail-row">
+              <span>Rating</span>
+              <span>Coming soon</span>
+            </div>
+
+            <div class="detail-row">
+              <span>Distance</span>
+              <span>${winner.distance} mi</span>
+            </div>
+
+            <div class="detail-row">
+              <span>Open</span>
+              <span>Coming soon</span>
+            </div>
+
+            <div class="detail-row">
+              <span>Address</span>
+              <span>Coming soon</span>
+            </div>
+
+          </div>
+
+          <div class="restaurant-actions">
+            <button class="restaurant-action-button" disabled>
+              Directions
+            </button>
+
+            <button class="restaurant-action-button" disabled>
+              Menu
+            </button>
+          </div>
+
+        </div>
+      `
+
+      restaurantResult.classList.remove('hidden')
+
+      const favoriteButton =
+        document.querySelector(
+          '#favorite-button'
+        )
+
+      if (favoriteButton) {
+        favoriteButton.addEventListener(
+          'click',
+          () => {
+            toggleFavoriteRestaurant(
+              winner.name
+            )
+
+            const isFavorite =
+              isFavoriteRestaurant(winner.name)
+
+            favoriteButton.textContent =
+              isFavorite ? '♥' : '♡'
+
+            favoriteButton.classList.toggle(
+              'is-favorite',
+              isFavorite
+            )
+          }
+        )
+      }
+
+      cycleCircle.classList.remove(
+        'spinning'
+      )
+
+      if (restaurantPool.length === 0) {
+        cycleCircle.classList.add('disabled')
+      }
+    }, 350)
+  }
+
+  showNextRestaurant()
 }
 
 renderHome()
