@@ -25,7 +25,8 @@ let selectedBudget = 25
 let selectedDistance = 5
 let partySize = 2
 let selectedCuisine = null
-
+let userLatitude = null
+let userLongitude = null
 
 
 
@@ -81,6 +82,35 @@ function saveRecentRestaurant(name) {
   )
 }
 
+function getUserLocation() {
+  if (!navigator.geolocation) {
+    console.log('Geolocation is not supported by this browser.')
+    return
+  }
+
+  navigator.geolocation.getCurrentPosition(
+    position => {
+      userLatitude = position.coords.latitude
+      userLongitude = position.coords.longitude
+
+      console.log('Latitude:', userLatitude)
+      console.log('Longitude:', userLongitude)
+
+      renderHome()
+    },
+
+    error => {
+      console.log('Location error:', error.message)
+    },
+
+    {
+      enableHighAccuracy: true,
+      timeout: 10000,
+      maximumAge: 60000,
+    }
+  )
+}
+
 function renderHome() {
   document.querySelector('#app').innerHTML = `
     <main class="app-shell">
@@ -89,6 +119,14 @@ function renderHome() {
 
         <h1>Dinner Roll</h1>
         <p class="subtitle">We used to hunt and gather...now we do this</p>
+
+        <div class="location-test">
+          ${
+            userLatitude !== null && userLongitude !== null
+              ? `Location: ${userLatitude.toFixed(5)}, ${userLongitude.toFixed(5)}`
+              : 'Location: waiting...'
+          }
+        </div>
 
         <div class="section">
           <h2>Budget</h2>
@@ -661,6 +699,7 @@ function spinRestaurant(
 }
 
 renderHome()
+getUserLocation ()
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {

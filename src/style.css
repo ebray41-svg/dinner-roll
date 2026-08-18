@@ -555,3 +555,10 @@ h1::after {
 .winner-title span {
   display: block;
 }
+
+.location-test {
+  margin: 10px 0 18px;
+  text-align: center;
+  font-size: 12px;
+  color: var(--muted);
+}
