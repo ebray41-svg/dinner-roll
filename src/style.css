@@ -318,8 +318,11 @@ h2 {
 
 .cycle-circle {
   position: relative;
+
   width: min(360px, 84vw);
-  height: min(360px, 84vw);
+  aspect-ratio: 1 / 1;
+  height: auto;
+  box-sizing: border-box;
   border-radius: 50%;
 
   display: flex;
