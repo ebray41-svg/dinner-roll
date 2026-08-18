@@ -25,8 +25,7 @@ let selectedBudget = 25
 let selectedDistance = 5
 let partySize = 2
 let selectedCuisine = null
-let cuisineWheelRotation = 0
-let restaurantWheelRotation = 0
+
 
 
 
