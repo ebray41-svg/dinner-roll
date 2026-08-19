@@ -356,6 +356,8 @@ const loadingMessages = [
   'Scouting the neighborhood...',
   'Asking around for good spots...',
   'Rolling the dice on dinner...',
+  'We used to hunt and gather...now we do this',
+  'The internet always knows...',
   'Checking who’s still open...',
   'Consulting the food gods...',
   'Never drive hangry...',
