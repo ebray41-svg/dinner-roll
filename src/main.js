@@ -111,6 +111,36 @@ function getUserLocation() {
   )
 }
 
+async function fetchLiveRestaurants(cuisine) {
+  if (userLatitude === null || userLongitude === null) {
+    console.log('[live-restaurants] no location yet, using static list')
+    return null
+  }
+
+  const url = `/api/restaurants?lat=${userLatitude}&lng=${userLongitude}&radiusMiles=${selectedDistance}&cuisine=${encodeURIComponent(cuisine)}`
+
+  try {
+    const response = await fetch(url)
+
+    if (!response.ok) {
+      const body = await response.text()
+      console.log(`[live-restaurants] API returned ${response.status}:`, body)
+      return null
+    }
+
+    const data = await response.json()
+
+    console.log(`[live-restaurants] got ${data.restaurants?.length ?? 0} results for ${cuisine} at`, url)
+
+    return data.restaurants && data.restaurants.length > 0
+      ? data.restaurants
+      : null
+  } catch (error) {
+    console.log('[live-restaurants] fetch threw, falling back to static list:', error.message)
+    return null
+  }
+}
+
 function renderHome() {
   document.querySelector('#app').innerHTML = `
     <main class="app-shell">
@@ -119,14 +149,6 @@ function renderHome() {
 
         <h1>Dinner Roll</h1>
         <p class="subtitle">We used to hunt and gather...now we do this</p>
-
-        <div class="location-test">
-          ${
-            userLatitude !== null && userLongitude !== null
-              ? `Location: ${userLatitude.toFixed(5)}, ${userLongitude.toFixed(5)}`
-              : 'Location: waiting...'
-          }
-        </div>
 
         <div class="section">
           <h2>Budget</h2>
@@ -325,7 +347,25 @@ function spinCuisine() {
 }
 
 
-function renderRestaurantScreen() {
+async function renderRestaurantScreen() {
+  document.querySelector('#app').innerHTML = `
+    <main class="app-shell">
+      <section class="card">
+        <div class="logo"></div>
+
+        <h1 class="winner-title">
+          <span>Winner Winner</span>
+          <span>Chicken Dinner</span>
+        </h1>
+
+        <p class="subtitle">Finding restaurants near you...</p>
+      </section>
+    </main>
+  `
+
+  const liveRestaurants = await fetchLiveRestaurants(selectedCuisine)
+  const restaurantSource = liveRestaurants ?? restaurants
+
   const budgetPerPerson = selectedBudget / partySize
 
 function getRestaurantTier(restaurant) {
@@ -358,7 +398,7 @@ function getTargetTier() {
 
 const targetTier = getTargetTier()
 
-const restaurantPool = restaurants.filter((restaurant) => {
+const restaurantPool = restaurantSource.filter((restaurant) => {
   return (
     restaurant.cuisine === selectedCuisine &&
     restaurant.pricePerPerson <= budgetPerPerson &&
@@ -366,7 +406,7 @@ const restaurantPool = restaurants.filter((restaurant) => {
   )
 })
 
-const displayRestaurantPool = restaurants.filter(
+const displayRestaurantPool = restaurantSource.filter(
   restaurant =>
     restaurant.cuisine === selectedCuisine
 )
@@ -589,6 +629,27 @@ function spinRestaurant(
       )
     }
 
+    const ratingText =
+      winner.rating != null
+        ? `${winner.rating.toFixed(1)} ★ (${winner.ratingCount ?? 0})`
+        : 'N/A'
+
+    const openText =
+      winner.openNow === true
+        ? 'Open now'
+        : winner.openNow === false
+          ? 'Closed'
+          : 'N/A'
+
+    const addressText = winner.address ?? 'N/A'
+
+    const directionsUrl =
+      winner.lat != null && winner.lng != null
+        ? `https://www.google.com/maps/dir/?api=1&destination=${winner.lat},${winner.lng}`
+        : winner.mapsUri ?? null
+
+    const menuUrl = winner.websiteUri ?? null
+
     setTimeout(() => {
       restaurantResult.innerHTML = `
         <div class="restaurant-info-card">
@@ -623,7 +684,7 @@ function spinRestaurant(
 
             <div class="detail-row">
               <span>Rating</span>
-              <span>Coming soon</span>
+              <span>${ratingText}</span>
             </div>
 
             <div class="detail-row">
@@ -633,24 +694,28 @@ function spinRestaurant(
 
             <div class="detail-row">
               <span>Open</span>
-              <span>Coming soon</span>
+              <span>${openText}</span>
             </div>
 
             <div class="detail-row">
               <span>Address</span>
-              <span>Coming soon</span>
+              <span>${addressText}</span>
             </div>
 
           </div>
 
           <div class="restaurant-actions">
-            <button class="restaurant-action-button" disabled>
-              Directions
-            </button>
+            ${
+              directionsUrl
+                ? `<a class="restaurant-action-button" href="${directionsUrl}" target="_blank" rel="noopener noreferrer">Directions</a>`
+                : `<button class="restaurant-action-button" disabled>Directions</button>`
+            }
 
-            <button class="restaurant-action-button" disabled>
-              Menu
-            </button>
+            ${
+              menuUrl
+                ? `<a class="restaurant-action-button" href="${menuUrl}" target="_blank" rel="noopener noreferrer">Menu</a>`
+                : `<button class="restaurant-action-button" disabled>Menu</button>`
+            }
           </div>
 
         </div>

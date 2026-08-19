@@ -1,4 +1,4 @@
-const CACHE_NAME = 'dinner-roll-v2'
+const CACHE_NAME = 'dinner-roll-v3'
 
 const APP_FILES = [
   '/',
