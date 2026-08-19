@@ -306,8 +306,12 @@ function spinCuisine() {
   
   findRestaurantButton.classList.add('hidden')
 
+  const availableCuisines = cuisines.filter(
+    (cuisine) => cuisine !== selectedCuisine
+  )
+
   const winner =
-    cuisines[Math.floor(Math.random() * cuisines.length)]
+    availableCuisines[Math.floor(Math.random() * availableCuisines.length)]
 
   selectedCuisine = winner
 
@@ -479,8 +483,13 @@ restaurantContent = `
         displayRestaurantPool
       )
     })
+
+    spinRestaurant(
+      currentRestaurantPool,
+      displayRestaurantPool
+    )
   }
-  
+
 
   document.querySelector('#start-over').addEventListener('click', () => {
     renderHome()
@@ -629,19 +638,21 @@ function spinRestaurant(
       )
     }
 
-    const ratingText =
-      winner.rating != null
-        ? `${winner.rating.toFixed(1)} ★ (${winner.ratingCount ?? 0})`
-        : 'N/A'
+    const summaryParts = []
 
-    const openText =
-      winner.openNow === true
-        ? 'Open now'
-        : winner.openNow === false
-          ? 'Closed'
-          : 'N/A'
+    if (winner.rating != null) {
+      summaryParts.push(`${winner.rating.toFixed(1)} ★ (${winner.ratingCount ?? 0})`)
+    }
 
-    const addressText = winner.address ?? 'N/A'
+    summaryParts.push(`${winner.distance} mi`)
+
+    if (winner.openNow === true) {
+      summaryParts.push('Open now')
+    } else if (winner.openNow === false) {
+      summaryParts.push('Closed')
+    }
+
+    const summaryText = summaryParts.join(' · ')
 
     const directionsUrl =
       winner.lat != null && winner.lng != null
@@ -681,27 +692,13 @@ function spinRestaurant(
           </div>
 
           <div class="restaurant-future-details">
+            <div class="restaurant-summary">${summaryText}</div>
 
-            <div class="detail-row">
-              <span>Rating</span>
-              <span>${ratingText}</span>
-            </div>
-
-            <div class="detail-row">
-              <span>Distance</span>
-              <span>${winner.distance} mi</span>
-            </div>
-
-            <div class="detail-row">
-              <span>Open</span>
-              <span>${openText}</span>
-            </div>
-
-            <div class="detail-row">
-              <span>Address</span>
-              <span>${addressText}</span>
-            </div>
-
+            ${
+              winner.reviewSnippet
+                ? `<p class="restaurant-review">“${winner.reviewSnippet}”</p>`
+                : ''
+            }
           </div>
 
           <div class="restaurant-actions">

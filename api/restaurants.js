@@ -68,6 +68,22 @@ function cuisineForTypes(types) {
   return null
 }
 
+const REVIEW_SNIPPET_MAX_LENGTH = 140
+
+function pickReviewSnippet(reviews) {
+  if (!reviews || reviews.length === 0) return null
+
+  const goodReviews = reviews.filter((review) => (review.rating ?? 0) >= 4)
+  const source = goodReviews.length > 0 ? goodReviews : reviews
+
+  const text = source[0]?.text?.text
+  if (!text) return null
+
+  return text.length > REVIEW_SNIPPET_MAX_LENGTH
+    ? `${text.slice(0, REVIEW_SNIPPET_MAX_LENGTH).trim()}…`
+    : text
+}
+
 function normalizePlace(place, userLat, userLng, forcedCuisine) {
   const cuisine = forcedCuisine ?? cuisineForTypes(place.types)
   if (!cuisine) return null
@@ -96,6 +112,7 @@ function normalizePlace(place, userLat, userLng, forcedCuisine) {
     mapsUri: place.googleMapsUri ?? null,
     lat: typeof location.latitude === 'number' ? location.latitude : null,
     lng: typeof location.longitude === 'number' ? location.longitude : null,
+    reviewSnippet: pickReviewSnippet(place.reviews),
   }
 }
 
@@ -145,6 +162,7 @@ export default async function handler(req, res) {
           'places.websiteUri',
           'places.googleMapsUri',
           'places.currentOpeningHours.openNow',
+          'places.reviews',
         ].join(','),
       },
       body: JSON.stringify({

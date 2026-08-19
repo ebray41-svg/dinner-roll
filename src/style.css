@@ -509,13 +509,16 @@ h1::after {
   border-top: 1px solid rgba(199, 146, 63, 0.25);
 }
 
-.detail-row {
-  display: flex;
-  justify-content: space-between;
-  gap: 18px;
-  padding: 5px 0;
-
+.restaurant-summary {
   font-size: 14px;
+  color: var(--taupe-dark);
+  font-weight: 600;
+}
+
+.restaurant-review {
+  margin: 10px 0 0;
+  font-size: 14px;
+  font-style: italic;
   color: var(--muted);
 }
 
@@ -550,12 +553,6 @@ h1::after {
 .restaurant-action-button:disabled {
   opacity: 1;
   cursor: default;
-}
-
-.detail-row span:last-child {
-  color: var(--taupe-dark);
-  font-weight: 600;
-  text-align: right;
 }
 
 .winner-title span {
