@@ -351,24 +351,30 @@ function spinCuisine() {
 }
 
 
+const loadingMessages = [
+  '...getting hungry?',
+  'Scouting the neighborhood...',
+  'Asking around for good spots...',
+  'Rolling the dice on dinner...',
+  'Checking who’s still open...',
+  'Consulting the food gods...',
+  'Never drive hangry...',
+  'Looking up local gas stations that serve taquitos...',
+]
+
 async function renderRestaurantScreen() {
-  document.querySelector('#app').innerHTML = `
-    <main class="app-shell">
-      <section class="card">
-        <div class="logo"></div>
+  const loadingMessage =
+    loadingMessages[Math.floor(Math.random() * loadingMessages.length)]
 
-        <h1 class="winner-title">
-          <span>Winner Winner</span>
-          <span>Chicken Dinner</span>
-        </h1>
-
-        <p class="subtitle">Finding restaurants near you...</p>
-      </section>
-    </main>
-  `
+  const loadingOverlay = document.createElement('div')
+  loadingOverlay.className = 'loading-overlay'
+  loadingOverlay.innerHTML = `<div class="loading-modal">${loadingMessage}</div>`
+  document.body.appendChild(loadingOverlay)
 
   const liveRestaurants = await fetchLiveRestaurants(selectedCuisine)
   const restaurantSource = liveRestaurants ?? restaurants
+
+  loadingOverlay.remove()
 
   const budgetPerPerson = selectedBudget / partySize
 

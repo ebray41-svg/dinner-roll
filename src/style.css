@@ -558,3 +558,31 @@ h1::after {
 .winner-title span {
   display: block;
 }
+
+.loading-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  padding: 24px;
+  background: rgba(52, 55, 47, 0.55);
+}
+
+.loading-modal {
+  max-width: 320px;
+  padding: 22px 28px;
+  border-radius: 20px;
+
+  background: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
+
+  color: var(--taupe-dark);
+  font-size: 18px;
+  font-weight: 700;
+  text-align: center;
+}
