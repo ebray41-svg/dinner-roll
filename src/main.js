@@ -371,7 +371,12 @@ async function renderRestaurantScreen() {
   loadingOverlay.innerHTML = `<div class="loading-modal">${loadingMessage}</div>`
   document.body.appendChild(loadingOverlay)
 
-  const liveRestaurants = await fetchLiveRestaurants(selectedCuisine)
+  const minLoadingTime = new Promise((resolve) => setTimeout(resolve, 2000))
+
+  const [liveRestaurants] = await Promise.all([
+    fetchLiveRestaurants(selectedCuisine),
+    minLoadingTime,
+  ])
   const restaurantSource = liveRestaurants ?? restaurants
 
   loadingOverlay.remove()
