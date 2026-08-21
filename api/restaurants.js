@@ -49,6 +49,13 @@ const PRICE_LEVEL_TO_TIER = {
   PRICE_LEVEL_VERY_EXPENSIVE: 'upscale',
 }
 
+const ALWAYS_EXCLUDED_TYPES = [
+  'gas_station',
+  'convenience_store',
+  'grocery_store',
+  'supermarket',
+]
+
 const EARTH_RADIUS_MILES = 3958.8
 
 function milesBetween(lat1, lng1, lat2, lng2) {
@@ -140,10 +147,21 @@ export default async function handler(req, res) {
   const radiusMeters = Math.min(Math.max(radiusMiles * 1609.34, 1), 50000)
 
   const requestedCuisine = typeof req.query.cuisine === 'string' ? req.query.cuisine : null
-  const includedTypes =
+  let includedTypes =
     requestedCuisine && CUISINE_TYPE_MAP[requestedCuisine]
       ? CUISINE_TYPE_MAP[requestedCuisine]
       : ['restaurant']
+
+  const excludeFastFood = req.query.excludeFastFood === 'true'
+  const excludedTypes = excludeFastFood
+    ? [...ALWAYS_EXCLUDED_TYPES, 'fast_food_restaurant']
+    : ALWAYS_EXCLUDED_TYPES
+
+  if (excludeFastFood) {
+    // Google rejects a type appearing in both included and excluded lists,
+    // and American's includedTypes carries fast_food_restaurant.
+    includedTypes = includedTypes.filter((type) => type !== 'fast_food_restaurant')
+  }
 
   try {
     const placesResponse = await fetch('https://places.googleapis.com/v1/places:searchNearby', {
@@ -167,6 +185,7 @@ export default async function handler(req, res) {
       },
       body: JSON.stringify({
         includedTypes,
+        excludedTypes,
         maxResultCount: 20,
         locationRestriction: {
           circle: {

@@ -27,11 +27,17 @@ let partySize = 2
 let selectedCuisine = null
 let userLatitude = null
 let userLongitude = null
+let includeFastFood = false
 
 
 
 function getFavoriteRestaurants() {
-  return JSON.parse(localStorage.getItem('favoriteRestaurants') || '[]')
+  const stored = JSON.parse(localStorage.getItem('favoriteRestaurants') || '[]')
+
+  // Older versions stored just the name as a string; keep those readable.
+  return stored.map((entry) =>
+    typeof entry === 'string' ? { name: entry } : entry
+  )
 }
 
 function saveFavoriteRestaurants(favorites) {
@@ -42,21 +48,23 @@ function saveFavoriteRestaurants(favorites) {
 }
 
 function isFavoriteRestaurant(name) {
-  return getFavoriteRestaurants().includes(name)
+  return getFavoriteRestaurants().some(
+    (restaurant) => restaurant.name === name
+  )
 }
 
-function toggleFavoriteRestaurant(name) {
+function toggleFavoriteRestaurant(restaurant) {
   const favorites = getFavoriteRestaurants()
 
-  if (favorites.includes(name)) {
+  if (favorites.some((favorite) => favorite.name === restaurant.name)) {
     saveFavoriteRestaurants(
-      favorites.filter((restaurantName) => restaurantName !== name)
+      favorites.filter((favorite) => favorite.name !== restaurant.name)
     )
 
     return false
   }
 
-  favorites.push(name)
+  favorites.push(restaurant)
   saveFavoriteRestaurants(favorites)
 
   return true
@@ -117,7 +125,7 @@ async function fetchLiveRestaurants(cuisine) {
     return null
   }
 
-  const url = `/api/restaurants?lat=${userLatitude}&lng=${userLongitude}&radiusMiles=${selectedDistance}&cuisine=${encodeURIComponent(cuisine)}`
+  const url = `/api/restaurants?lat=${userLatitude}&lng=${userLongitude}&radiusMiles=${selectedDistance}&cuisine=${encodeURIComponent(cuisine)}&excludeFastFood=${!includeFastFood}`
 
   try {
     const response = await fetch(url)
@@ -148,7 +156,7 @@ function renderHome() {
         <div class="logo"></div>
 
         <h1>Dinner Roll</h1>
-        <p class="subtitle">We used to hunt and gather...now we do this</p>
+        <p class="subtitle">You've got a reservation with fate...</p>
 
         <div class="section">
           <h2>Budget</h2>
@@ -186,18 +194,33 @@ function renderHome() {
           </div>
         </div>
 
-        <div class="section">
-          <h2>Party Size</h2>
+        <div class="section party-and-toggle-row">
+          <div class="party-size-block">
+            <h2>Party Size</h2>
 
-          <div class="party-control">
-            <button id="minus">−</button>
-            <span id="party-size">${partySize}</span>
-            <button id="plus">+</button>
+            <div class="party-control">
+              <button id="minus">−</button>
+              <span id="party-size">${partySize}</span>
+              <button id="plus">+</button>
+            </div>
+          </div>
+
+          <div class="fast-food-block">
+            <h2>Fast Food</h2>
+
+            <label class="switch">
+              <input type="checkbox" id="fast-food-toggle" ${includeFastFood ? 'checked' : ''}>
+              <span class="switch-track"><span class="switch-thumb"></span></span>
+            </label>
           </div>
         </div>
 
         <button id="lets-eat" class="primary-button">
           Bon Appetit
+        </button>
+
+        <button id="view-favorites" class="secondary-button">
+          ♥ Favorites
         </button>
       </section>
     </main>
@@ -235,8 +258,17 @@ function renderHome() {
     }
   })
 
+  document.querySelector('#fast-food-toggle').addEventListener('change', (event) => {
+    includeFastFood = event.target.checked
+    renderHome()
+  })
+
   document.querySelector('#lets-eat').addEventListener('click', () => {
     renderCuisineScreen()
+  })
+
+  document.querySelector('#view-favorites').addEventListener('click', () => {
+    renderFavoritesScreen()
   })
 }
 
@@ -247,7 +279,7 @@ function renderCuisineScreen() {
         <div class="logo"></div>
 
         <h1 class="globe-title">The Internet Always Knows</h1>
-        <p class="subtitle">Let's see what it decides...</p>
+        <p class="subtitle">Let's see what's cookin'...</p>
 
         <div class="summary-box">
           <span>Budget: $${selectedBudget}</span>
@@ -262,7 +294,14 @@ function renderCuisineScreen() {
           </div>
         </div>
 
-
+        <div class="cuisine-picker-row">
+          <select id="cuisine-picker" class="cuisine-picker">
+            <option value="">If you already know the what</option>
+            ${cuisines
+              .map((cuisine) => `<option value="${cuisine}">${cuisine}</option>`)
+              .join('')}
+          </select>
+        </div>
 
         <button id="find-restaurant" class="primary-button hidden">
           Now Find a Good Place
@@ -284,6 +323,20 @@ function renderCuisineScreen() {
 
   document.querySelector('#cuisine-cycle').addEventListener('click', () => {
     spinCuisine()
+  })
+
+  document.querySelector('#cuisine-picker').addEventListener('change', (event) => {
+    const cuisine = event.target.value
+    if (!cuisine) return
+
+    const cycleCircle = document.querySelector('#cuisine-cycle')
+
+    if (cycleCircle.classList.contains('spinning')) return
+
+    selectedCuisine = cuisine
+    cycleCircle.textContent = cuisine
+
+    document.querySelector('#find-restaurant').classList.remove('hidden')
   })
 
   document.querySelector('#find-restaurant').addEventListener('click', () => {
@@ -509,6 +562,135 @@ restaurantContent = `
   })
 }
 
+function buildRestaurantCardHtml(restaurant) {
+  const summaryParts = []
+
+  if (restaurant.rating != null) {
+    summaryParts.push(`${restaurant.rating.toFixed(1)} ★ (${restaurant.ratingCount ?? 0})`)
+  }
+
+  if (restaurant.distance != null) {
+    summaryParts.push(`${restaurant.distance} mi`)
+  }
+
+  if (restaurant.openNow === true) {
+    summaryParts.push('Open now')
+  } else if (restaurant.openNow === false) {
+    summaryParts.push('Closed')
+  }
+
+  const summaryText = summaryParts.join(' · ')
+
+  const directionsUrl =
+    restaurant.lat != null && restaurant.lng != null
+      ? `https://www.google.com/maps/dir/?api=1&destination=${restaurant.lat},${restaurant.lng}`
+      : restaurant.mapsUri ?? null
+
+  const menuUrl = restaurant.websiteUri ?? null
+
+  const detailsParts = []
+  if (restaurant.cuisine) detailsParts.push(restaurant.cuisine)
+  if (restaurant.pricePerPerson != null) detailsParts.push(`About $${restaurant.pricePerPerson} per person`)
+
+  return `
+    <div class="restaurant-info-card" data-restaurant-name="${restaurant.name}">
+
+      <div class="restaurant-title-row">
+        <div class="restaurant-name">
+          ${restaurant.name}
+        </div>
+
+        <button
+          class="favorite-heart ${isFavoriteRestaurant(restaurant.name) ? 'is-favorite' : ''}"
+          data-favorite-toggle
+          aria-label="Favorite ${restaurant.name}"
+        >
+          ${isFavoriteRestaurant(restaurant.name) ? '♥' : '♡'}
+        </button>
+      </div>
+
+      ${detailsParts.length > 0 ? `<div class="restaurant-details">${detailsParts.join(' · ')}</div>` : ''}
+
+      ${
+        summaryText || restaurant.reviewSnippet
+          ? `
+        <div class="restaurant-future-details">
+          ${summaryText ? `<div class="restaurant-summary">${summaryText}</div>` : ''}
+
+          ${restaurant.reviewSnippet ? `<p class="restaurant-review">“${restaurant.reviewSnippet}”</p>` : ''}
+        </div>
+      `
+          : ''
+      }
+
+      <div class="restaurant-actions">
+        ${
+          directionsUrl
+            ? `<a class="restaurant-action-button" href="${directionsUrl}" target="_blank" rel="noopener noreferrer">Directions</a>`
+            : `<button class="restaurant-action-button" disabled>Directions</button>`
+        }
+
+        ${
+          menuUrl
+            ? `<a class="restaurant-action-button" href="${menuUrl}" target="_blank" rel="noopener noreferrer">Menu</a>`
+            : `<button class="restaurant-action-button" disabled>Menu</button>`
+        }
+      </div>
+
+    </div>
+  `
+}
+
+function renderFavoritesScreen() {
+  const favorites = getFavoriteRestaurants()
+
+  const favoritesContent =
+    favorites.length === 0
+      ? `
+        <div class="result-box">
+          <h2>No favorites yet</h2>
+          <p>Heart a restaurant after a spin and it'll show up here.</p>
+        </div>
+      `
+      : favorites.map((restaurant) => buildRestaurantCardHtml(restaurant)).join('')
+
+  document.querySelector('#app').innerHTML = `
+    <main class="app-shell">
+      <section class="card">
+        <div class="logo"></div>
+
+        <h1 class="winner-title">
+          <span>Your</span>
+          <span>Favorites</span>
+        </h1>
+
+        <div class="favorites-list">${favoritesContent}</div>
+
+        <button id="back-home" class="secondary-button">
+          ← Back
+        </button>
+      </section>
+    </main>
+  `
+
+  document.querySelector('#back-home').addEventListener('click', () => {
+    renderHome()
+  })
+
+  document.querySelector('.favorites-list').addEventListener('click', (event) => {
+    const toggleButton = event.target.closest('[data-favorite-toggle]')
+    if (!toggleButton) return
+
+    const card = toggleButton.closest('.restaurant-info-card')
+    const name = card.dataset.restaurantName
+    const restaurant = favorites.find((favorite) => favorite.name === name)
+    if (!restaurant) return
+
+    toggleFavoriteRestaurant(restaurant)
+    renderFavoritesScreen()
+  })
+}
+
 function spinRestaurant(
   restaurantPool,
   displayRestaurantPool
@@ -651,91 +833,14 @@ function spinRestaurant(
       )
     }
 
-    const summaryParts = []
-
-    if (winner.rating != null) {
-      summaryParts.push(`${winner.rating.toFixed(1)} ★ (${winner.ratingCount ?? 0})`)
-    }
-
-    summaryParts.push(`${winner.distance} mi`)
-
-    if (winner.openNow === true) {
-      summaryParts.push('Open now')
-    } else if (winner.openNow === false) {
-      summaryParts.push('Closed')
-    }
-
-    const summaryText = summaryParts.join(' · ')
-
-    const directionsUrl =
-      winner.lat != null && winner.lng != null
-        ? `https://www.google.com/maps/dir/?api=1&destination=${winner.lat},${winner.lng}`
-        : winner.mapsUri ?? null
-
-    const menuUrl = winner.websiteUri ?? null
-
     setTimeout(() => {
-      restaurantResult.innerHTML = `
-        <div class="restaurant-info-card">
-
-          <div class="restaurant-title-row">
-            <div class="restaurant-name">
-              ${winner.name}
-            </div>
-
-            <button
-              class="favorite-heart ${
-                isFavoriteRestaurant(winner.name)
-                  ? 'is-favorite'
-                  : ''
-              }"
-              id="favorite-button"
-              aria-label="Favorite ${winner.name}"
-            >
-              ${
-                isFavoriteRestaurant(winner.name)
-                  ? '♥'
-                  : '♡'
-              }
-            </button>
-          </div>
-
-          <div class="restaurant-details">
-            ${winner.cuisine} · About $${winner.pricePerPerson} per person
-          </div>
-
-          <div class="restaurant-future-details">
-            <div class="restaurant-summary">${summaryText}</div>
-
-            ${
-              winner.reviewSnippet
-                ? `<p class="restaurant-review">“${winner.reviewSnippet}”</p>`
-                : ''
-            }
-          </div>
-
-          <div class="restaurant-actions">
-            ${
-              directionsUrl
-                ? `<a class="restaurant-action-button" href="${directionsUrl}" target="_blank" rel="noopener noreferrer">Directions</a>`
-                : `<button class="restaurant-action-button" disabled>Directions</button>`
-            }
-
-            ${
-              menuUrl
-                ? `<a class="restaurant-action-button" href="${menuUrl}" target="_blank" rel="noopener noreferrer">Menu</a>`
-                : `<button class="restaurant-action-button" disabled>Menu</button>`
-            }
-          </div>
-
-        </div>
-      `
+      restaurantResult.innerHTML = buildRestaurantCardHtml(winner)
 
       restaurantResult.classList.remove('hidden')
 
       const favoriteButton =
-        document.querySelector(
-          '#favorite-button'
+        restaurantResult.querySelector(
+          '[data-favorite-toggle]'
         )
 
       if (favoriteButton) {
@@ -743,7 +848,7 @@ function spinRestaurant(
           'click',
           () => {
             toggleFavoriteRestaurant(
-              winner.name
+              winner
             )
 
             const isFavorite =
