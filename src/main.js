@@ -407,10 +407,11 @@ function spinCuisine() {
 const loadingMessages = [
   '...getting hungry?',
   'Scouting the neighborhood...',
+  'How about a stick of gum and a hotpocket...',
   'Asking around for good spots...',
   'Rolling the dice on dinner...',
   'We used to hunt and gather...now we do this',
-  'The internet always knows...',
+  'Checking the hours at the VFW...',
   'Checking who’s still open...',
   'Consulting the food gods...',
   'Never drive hangry...',
