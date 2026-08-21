@@ -296,7 +296,7 @@ function renderCuisineScreen() {
 
         <div class="cuisine-picker-row">
           <select id="cuisine-picker" class="cuisine-picker">
-            <option value="">If you already know the what</option>
+            <option value="">If you know what you want</option>
             ${cuisines
               .map((cuisine) => `<option value="${cuisine}">${cuisine}</option>`)
               .join('')}
